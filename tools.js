@@ -82,8 +82,7 @@ const DOCX_STYLE = {
   rowHeight: 624,                // 31.18pt ≈ 1.1cm（行高至少）
   font: "华文中宋",
 };
-const PAGE_W = 16838, PAGE_H = 11906, MARGIN = 1080;   // A4 横向 + 0.75" 边距
-const PAGE_TEXT_TWIPS = PAGE_W - MARGIN * 2;
+const PAGE_TEXT_TWIPS = 9026;    // A4 竖版 - 默认左右页边距 1"
 const CELL_MARGIN_TWIPS = 216;   // 单元格左右内边距
 const FONT_SIZE_PT = 11;
 const CHAR_TWIPS = FONT_SIZE_PT * 20;
@@ -94,7 +93,7 @@ function computeWidths(fields, rows) {
   const cjkW = (v) => String(v).length * 220 + CELL_MARGIN_TWIPS;
   const widths = fields.map(f => {
     if (f === "释义") return null;
-    if (f === "六级") return 700;
+    if (f === "六级") return 700;  // 表头「六级」+星号单行
     if (["序号", "原序号", "词频", "综合得分"].includes(f))
       return Math.min(Math.max(...rows.filter(r => r[f] != null).map(r => latinW(r[f])), 500), 1000);
     if (f === "单词")
@@ -103,17 +102,16 @@ function computeWidths(fields, rows) {
       const m = Math.max(...rows.filter(r => r[f]).map(r => latinW(r[f])), 0);
       return Math.min(Math.max(m || 600, 800), 1700);
     }
-    if (f === "分类名称")
-      return Math.min(Math.max(...rows.filter(r => r[f]).map(r => cjkW(r[f])), 0) || 1100, 3800);
-    if (f === "CEFR等级") return 1200;
-    if (["学术词汇", "高级词汇"].includes(f)) return 950;
+    if (f === "分类名称") return 1600;   // 竖版宽度有限，长分类名自动折行
+    if (f === "CEFR等级") return 1150;
+    if (["学术词汇", "高级词汇"].includes(f)) return 900;
     return 1100;
   });
   const fixed = widths.reduce((s, w) => s + (w || 0), 0);
-  let out = widths.map(w => w === null ? Math.max(PAGE_TEXT_TWIPS - fixed, 1600) : w);
-  const total = out.reduce((a, b) => a + b, 0);
-  if (total > PAGE_TEXT_TWIPS) out = out.map(w => Math.floor(w * PAGE_TEXT_TWIPS / total));
-  return out;
+  const flex = PAGE_TEXT_TWIPS - fixed;
+  if (flex < 1400)
+    throw new Error(`列太多：固定列已占 ${fixed}，释义列不足 1400 twips，超出 A4 宽度，不能生成（请减少勾选列）`);
+  return widths.map(w => w === null ? flex : w);
 }
 function breakDef(s, maxLen, seps = "、；") {
   s = s.trim();
@@ -142,8 +140,10 @@ async function runDocx() {
     if (!fields.length) { log("请至少勾选一列"); return; }
     const bad = fields.filter((f) => !(f in rows[0]));
     if (bad.length) { log(`字段不存在：${bad.join("、")}（数据换过了？重新勾选）`); return; }
-    const perPage = Math.max(1, parseInt(document.getElementById("per-page").value) || 13);
-    const widths = computeWidths(fields, rows);
+    const perPage = Math.max(1, parseInt(document.getElementById("per-page").value) || 18);
+    let widths;
+    try { widths = computeWidths(fields, rows); }
+    catch (e) { log("出错：" + e.message); return; }
     const defIdx = fields.indexOf("释义");
     const maxLen = defIdx >= 0 ? Math.max(1, Math.floor((widths[defIdx] - CELL_MARGIN_TWIPS) / CHAR_TWIPS)) : 0;
     if (defIdx >= 0) log(`释义列宽 ${widths[defIdx]} twips → 单行最大 ${maxLen} 字（随勾选列数联动），超长释义按顿号/分号断行`);
@@ -188,13 +188,7 @@ async function runDocx() {
     }
     const doc = new Document({
       styles: { default: { document: { run: { font: DOCX_STYLE.font } } } },
-      sections: [{
-        properties: { page: {
-          size: { width: PAGE_W, height: PAGE_H, orientation: "landscape" },
-          margin: { top: MARGIN, bottom: MARGIN, left: MARGIN, right: MARGIN },
-        } },
-        children,
-      }],
+      sections: [{ children }],   // A4 竖版默认
     });
     const blob = await Packer.toBlob(doc);
     download(blob, src.name.replace(/\.json$/i, "") + ".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");

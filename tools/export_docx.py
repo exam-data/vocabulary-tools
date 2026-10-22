@@ -30,9 +30,9 @@ ROW_HEIGHT = Pt(31.18)
 FONT = "华文中宋"            # 默认（WPS/Office 自带）；本地无此字体时用 --font 覆盖
 FONT_SIZE_PT = 11           # 显式固定，保证断行计算确定
 CHAR_TWIPS = FONT_SIZE_PT * 20
-PAGE_W, PAGE_H = 16838, 11906          # A4 横向（twips）
-MARGIN = 1080                          # 0.75"
-PAGE_TEXT_TWIPS = PAGE_W - MARGIN * 2  # 14678
+PAGE_W, PAGE_H = 11906, 16838          # A4 竖版（twips）
+MARGIN = 1440                          # 1"
+PAGE_TEXT_TWIPS = PAGE_W - MARGIN * 2  # 9026
 CELL_MARGIN_TWIPS = 216     # 单元格左右内边距 (108*2)
 
 # 各字段列宽（twips）；释义为弹性列，吃掉剩余宽度
@@ -126,8 +126,7 @@ def compute_widths(fields, rows):
             m = max((latin_w(r[f]) for r in rows if r.get(f)), default=600)
             widths.append(min(max(m, 800), 1600))
         elif f == "分类名称":
-            m = max(cjk_w(r[f]) for r in rows if r.get(f))
-            widths.append(min(m, 3800))              # 横向页宽充裕，分类名单行放下
+            widths.append(1600)                      # 竖版宽度有限：7 字/行，长分类名自动折行（行高自适应）
         elif f == "CEFR等级":
             widths.append(1200)                      # 表头「CEFR等级」要放得下
         elif f in ("学术词汇", "高级词汇"):
@@ -135,18 +134,17 @@ def compute_widths(fields, rows):
         else:
             widths.append(1100)
     fixed = sum(w for w in widths if w)
-    flex = max(PAGE_TEXT_TWIPS - fixed, 1400)
+    flex = PAGE_TEXT_TWIPS - fixed
+    if flex < 1400:
+        raise ValueError(f"列太多：固定列已占 {fixed} twips，释义列不足 1400 twips，超出 A4 宽度，不能生成（请减少勾选列）")
     widths = [flex if w is None else w for w in widths]
-    total = sum(widths)
-    if total > PAGE_TEXT_TWIPS:
-        widths = [w * PAGE_TEXT_TWIPS // total for w in widths]
     return widths
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("input", help="词汇 JSON 文件")
     ap.add_argument("-o", "--output", default="updated_doc.docx", help="输出 docx（默认 updated_doc.docx）")
-    ap.add_argument("--per-page", type=int, default=13, help="每页单词数（横向默认 13，行高含渲染余量）")
+    ap.add_argument("--per-page", type=int, default=18, help="每页单词数（默认 18）")
     ap.add_argument("--columns", help="要导出的字段，逗号分隔（默认：序号,词频,单词,释义）")
     ap.add_argument("--max-length", type=int, help="释义单行最大汉字数（默认按列宽自动计算）")
     ap.add_argument("--no-break-def", action="store_true", help="关闭释义断行")
@@ -170,7 +168,10 @@ def main():
     else:
         fields = [f for f in DEFAULT_COLS if f in rows[0]]
 
-    widths = compute_widths(fields, rows)
+    try:
+        widths = compute_widths(fields, rows)
+    except ValueError as e:
+        sys.exit(str(e))
     break_def = not args.no_break_def and DEF_FIELD in fields
     max_length = None
     if break_def:
@@ -181,15 +182,8 @@ def main():
     per_num, total = args.per_page, len(rows)
     page_num = total // per_num + (1 if total % per_num else 0)
 
-    # 横向 A4 + 窄边距
-    from docx.enum.section import WD_ORIENT
     font = args.font or FONT
     doc = Document()
-    sec = doc.sections[0]
-    sec.orientation = WD_ORIENT.LANDSCAPE
-    sec.page_width, sec.page_height = Twips(PAGE_W), Twips(PAGE_H)
-    sec.left_margin = sec.right_margin = Twips(MARGIN)
-    sec.top_margin = sec.bottom_margin = Twips(MARGIN)
     normal = doc.styles["Normal"]
     normal.font.name = font
     normal.font.size = Pt(FONT_SIZE_PT)
