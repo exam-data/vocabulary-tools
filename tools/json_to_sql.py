@@ -25,6 +25,7 @@ FIELD_MAP = {
     "高级词汇": ("c1c2",      "tinyint(1)"),
     "综合得分": ("score",      "float"),
     # 富化字段
+    "真题次数": ("exam_count",  "int"),
     "例句":    ("sentence",    "varchar(512)"),
     "例句翻译": ("sentence_cn", "varchar(512)"),
     "例句来源": ("sentence_src", "varchar(255)"),

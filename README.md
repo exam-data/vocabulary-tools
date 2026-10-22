@@ -31,6 +31,8 @@ python3 -m http.server 8000   # 然后访问 http://localhost:8000
 | `tools/json_to_sql.py` | JSON → MySQL 导入文件 | `python3 tools/json_to_sql.py netem_full_list.json` |
 | `tools/sql_to_json.py` | SQL → JSON（兼容旧数据） | `python3 tools/sql_to_json.py netem_full_list.sql` |
 | `tools/spelling-variations/` | Node 包：填充「其他拼写」 | 见 `docs/how-to-generate-docs.md` |
+| `tools/rerank/` | 通用智能重排器（词频×CEFR×学术×高级） | `python3 tools/rerank/rerank_vocab.py <词汇.json>` |
+| `tools/book/` | 词书 PDF 模板（rank/category 双模式，xelatex） | 见 `tools/book/README.md` |
 
 ## 生成单词文档的完整流程
 

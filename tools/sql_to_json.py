@@ -14,6 +14,7 @@ COLUMN_MAP = {  # SQL 列名 -> JSON 中文字段
     "word": "单词", "definition": "释义", "variant": "其他拼写", "category": "分类名称",
     "orig_id": "原序号", "cefr": "CEFR等级", "nawl": "学术词汇", "c1c2": "高级词汇",
     "score": "综合得分",
+    "exam_count": "真题次数",
     "sentence": "例句", "sentence_cn": "例句翻译", "sentence_src": "例句来源",
 }
 TITLE_MAP = {
@@ -49,7 +50,7 @@ def split_values(s):
 def parse_value(v, col):
     if v == "NULL":
         return None
-    if col in ("id", "frequency", "orig_id"):
+    if col in ("id", "frequency", "orig_id", "exam_count"):
         return int(v)
     if col == "score":
         return float(v)
