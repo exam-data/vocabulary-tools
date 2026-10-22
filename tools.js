@@ -79,6 +79,37 @@ const DOCX_STYLE = {
   rowHeight: 624,                // 31.18pt ≈ 1.1cm（行高至少）
   font: "华文中宋",
 };
+const PAGE_TEXT_TWIPS = 9026;    // A4 - 默认左右页边距
+const CELL_MARGIN_TWIPS = 216;   // 单元格左右内边距
+const FONT_SIZE_PT = 11;
+const CHAR_TWIPS = FONT_SIZE_PT * 20;
+const FIELD_WIDTH = {            // 各字段列宽（twips），释义为弹性列
+  "序号": 650, "原序号": 650, "词频": 750, "六级": 450, "单词": 1600,
+  "其他拼写": 1100, "分类名称": 1100,
+  "CEFR等级": 650, "学术词汇": 750, "高级词汇": 750, "综合得分": 750,
+};
+function computeWidths(fields) {
+  const fixed = fields.filter(f => f !== "释义").reduce((s, f) => s + (FIELD_WIDTH[f] ?? 1100), 0);
+  return fields.map(f => f === "释义" ? Math.max(PAGE_TEXT_TWIPS - fixed, 1200) : (FIELD_WIDTH[f] ?? 1100));
+}
+function breakDef(s, maxLen, seps = "、；") {
+  s = s.trim();
+  if (!s) return s;
+  const parts = s.split(new RegExp("([" + seps + "])"));
+  const items = [];
+  for (let i = 0; i < parts.length; i += 2) {
+    const word = parts[i], sep = parts[i + 1] || "";
+    if (word) items.push(word + sep);
+  }
+  const lines = []; let cur = [], curlen = 0;
+  for (const item of items) {
+    if (cur.length && curlen + item.length > maxLen) { lines.push(cur.join("")); cur = []; curlen = 0; }
+    cur.push(item); curlen += item.length;
+    if (item.length > maxLen) { lines.push(cur.join("")); cur = []; curlen = 0; }
+  }
+  if (cur.length) lines.push(cur.join(""));
+  return lines.map(l => l.replace(/[、；]$/, "")).join("\n");
+}
 async function runDocx() {
   try {
     const src = await getJson("docx", "docx-file");
@@ -89,8 +120,12 @@ async function runDocx() {
     const bad = fields.filter((f) => !(f in rows[0]));
     if (bad.length) { log(`字段不存在：${bad.join("、")}（数据换过了？重新勾选）`); return; }
     const perPage = Math.max(1, parseInt(document.getElementById("per-page").value) || 18);
+    const widths = computeWidths(fields);
+    const defIdx = fields.indexOf("释义");
+    const maxLen = defIdx >= 0 ? Math.max(1, Math.floor((widths[defIdx] - CELL_MARGIN_TWIPS) / CHAR_TWIPS)) : 0;
+    if (defIdx >= 0) log(`释义列宽 ${widths[defIdx]} twips → 单行最大 ${maxLen} 字（自动），超长释义按顿号/分号断行`);
     const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, WidthType,
-            PageBreak, AlignmentType, VerticalAlign, HeightRule, BorderStyle } = docx;
+            PageBreak, AlignmentType, VerticalAlign, HeightRule, BorderStyle, TableLayoutType } = docx;
     const B = { style: BorderStyle.SINGLE, size: DOCX_STYLE.border.size, color: DOCX_STYLE.border.color };
     const borders = { top: B, left: B, bottom: B, right: B, insideHorizontal: B, insideVertical: B };
 
@@ -101,7 +136,7 @@ async function runDocx() {
         children: [new Paragraph({
           alignment: AlignmentType.CENTER,
           spacing: { before: 0, after: 0, line: 240 },
-          children: [new TextRun({ text: String(text ?? ""), bold: header, font: DOCX_STYLE.font })],
+          children: [new TextRun({ text: String(text ?? ""), bold: header, font: DOCX_STYLE.font, size: FONT_SIZE_PT * 2 })],
         })],
       });
 
@@ -115,11 +150,16 @@ async function runDocx() {
       })];
       for (let i = 0; i < perPage && idx < rows.length; i++, idx++) {
         trows.push(new TableRow({
-          children: fields.map((f) => cell(rows[idx][f])),
+          children: fields.map((f) => {
+            let v = rows[idx][f] ?? "";
+            if (defIdx >= 0 && f === "释义" && v) v = breakDef(String(v), maxLen);
+            return cell(v);
+          }),
           height: { value: DOCX_STYLE.rowHeight, rule: HeightRule.ATLEAST },
         }));
       }
-      children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders, rows: trows }));
+      children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders, rows: trows,
+        columnWidths: widths, layout: TableLayoutType.FIXED }));
       if (idx < rows.length) children.push(new Paragraph({ children: [new PageBreak()] }));
     }
     const doc = new Document({

@@ -36,7 +36,7 @@ python3 -m http.server 8000   # 然后访问 http://localhost:8000
 
 ```bash
 pip install python-docx          # 唯一依赖
-python3 tools/export_docx.py netem_full_list.json -o draft.docx   # 美化已内建，打开即成品
+python3 tools/export_docx.py netem_full_list.json -o draft.docx   # 美化+释义断行已内建，打开即成品
 # （可选）python3 tools/format_doc_def.py draft.docx -o final.docx --max-length 20
 ```
 

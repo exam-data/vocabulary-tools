@@ -19,7 +19,7 @@
 
 2. ~~将 `tools/macro.js` 放入 WPS 宏并执行~~（**已不需要**：新生成器内建了首行灰底、边框、居中、行高等全部美化，`macro.js` 仅作为旧流程备份保留）。
 
-3. 如需释义列按宽度断行：先测试单元格单行可容纳的最大汉字数，然后：
+3. 释义列断行**已自动化**：生成器按固定列宽和字号直接算出一行能放几个汉字并按顿号/分号断行，不再需要人工实测。如需手动控制可加 `--max-length N` 覆盖，或 `--no-break-def` 关闭：
 
    ```bash
    python3 tools/format_doc_def.py draft.docx -o final.docx --max-length <测得的字数>
