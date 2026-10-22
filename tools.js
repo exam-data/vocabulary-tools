@@ -79,22 +79,38 @@ const DOCX_STYLE = {
   rowHeight: 624,                // 31.18pt ≈ 1.1cm（行高至少）
   font: "华文中宋",
 };
-const PAGE_TEXT_TWIPS = 9026;    // A4 - 默认左右页边距
+const PAGE_W = 16838, PAGE_H = 11906, MARGIN = 1080;   // A4 横向 + 0.75" 边距
+const PAGE_TEXT_TWIPS = PAGE_W - MARGIN * 2;
 const CELL_MARGIN_TWIPS = 216;   // 单元格左右内边距
 const FONT_SIZE_PT = 11;
 const CHAR_TWIPS = FONT_SIZE_PT * 20;
-const FIELD_WIDTH = {            // 各字段列宽（twips），释义为弹性列
-  "序号": 650, "原序号": 650, "词频": 750, "六级": 450, "单词": 1600,
-  "其他拼写": 1100, "分类名称": 1100,
-  "CEFR等级": 650, "学术词汇": 750, "高级词汇": 750, "综合得分": 750,
-};
-function computeWidths(fields) {
-  // 释义为弹性列；总宽超过页面文字区时所有列等比收缩
-  const fixed = fields.filter(f => f !== "释义").reduce((s, f) => s + (FIELD_WIDTH[f] ?? 1100), 0);
-  let widths = fields.map(f => f === "释义" ? Math.max(PAGE_TEXT_TWIPS - fixed, 1200) : (FIELD_WIDTH[f] ?? 1100));
-  const total = widths.reduce((a, b) => a + b, 0);
-  if (total > PAGE_TEXT_TWIPS) widths = widths.map(w => Math.floor(w * PAGE_TEXT_TWIPS / total));
-  return widths;
+const LATIN_TW = 122;              // 11pt 拉丁字符约 6.1pt = 122 twips
+function computeWidths(fields, rows) {
+  // 内容自适应：按各列真实内容最大长度定宽（保证单行）；释义为弹性列；超页宽则等比收缩
+  const latinW = (v) => String(v).length * LATIN_TW + CELL_MARGIN_TWIPS;
+  const cjkW = (v) => String(v).length * 220 + CELL_MARGIN_TWIPS;
+  const widths = fields.map(f => {
+    if (f === "释义") return null;
+    if (f === "六级") return 700;
+    if (["序号", "原序号", "词频", "综合得分"].includes(f))
+      return Math.min(Math.max(...rows.filter(r => r[f] != null).map(r => latinW(r[f])), 500), 1000);
+    if (f === "单词")
+      return Math.min(Math.max(...rows.map(r => latinW(r["单词"])), 800), 2400);
+    if (f === "其他拼写") {
+      const m = Math.max(...rows.filter(r => r[f]).map(r => latinW(r[f])), 0);
+      return Math.min(Math.max(m || 600, 800), 1700);
+    }
+    if (f === "分类名称")
+      return Math.min(Math.max(...rows.filter(r => r[f]).map(r => cjkW(r[f])), 0) || 1100, 3800);
+    if (f === "CEFR等级") return 1200;
+    if (["学术词汇", "高级词汇"].includes(f)) return 950;
+    return 1100;
+  });
+  const fixed = widths.reduce((s, w) => s + (w || 0), 0);
+  let out = widths.map(w => w === null ? Math.max(PAGE_TEXT_TWIPS - fixed, 1600) : w);
+  const total = out.reduce((a, b) => a + b, 0);
+  if (total > PAGE_TEXT_TWIPS) out = out.map(w => Math.floor(w * PAGE_TEXT_TWIPS / total));
+  return out;
 }
 function breakDef(s, maxLen, seps = "、；") {
   s = s.trim();
@@ -123,8 +139,8 @@ async function runDocx() {
     if (!fields.length) { log("请至少勾选一列"); return; }
     const bad = fields.filter((f) => !(f in rows[0]));
     if (bad.length) { log(`字段不存在：${bad.join("、")}（数据换过了？重新勾选）`); return; }
-    const perPage = Math.max(1, parseInt(document.getElementById("per-page").value) || 18);
-    const widths = computeWidths(fields);
+    const perPage = Math.max(1, parseInt(document.getElementById("per-page").value) || 13);
+    const widths = computeWidths(fields, rows);
     const defIdx = fields.indexOf("释义");
     const maxLen = defIdx >= 0 ? Math.max(1, Math.floor((widths[defIdx] - CELL_MARGIN_TWIPS) / CHAR_TWIPS)) : 0;
     if (defIdx >= 0) log(`释义列宽 ${widths[defIdx]} twips → 单行最大 ${maxLen} 字（随勾选列数联动），超长释义按顿号/分号断行`);
@@ -164,11 +180,18 @@ async function runDocx() {
       }
       children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders, rows: trows,
         columnWidths: widths, layout: TableLayoutType.FIXED }));
-      if (idx < rows.length) children.push(new Paragraph({ children: [new PageBreak()] }));
+      if (idx < rows.length) children.push(new Paragraph({ pageBreakBefore: true,
+        spacing: { before: 0, after: 0 }, children: [] }));   // 换页段落落在下页开头，不产生空白页
     }
     const doc = new Document({
       styles: { default: { document: { run: { font: DOCX_STYLE.font } } } },
-      sections: [{ children }],
+      sections: [{
+        properties: { page: {
+          size: { width: PAGE_W, height: PAGE_H, orientation: "landscape" },
+          margin: { top: MARGIN, bottom: MARGIN, left: MARGIN, right: MARGIN },
+        } },
+        children,
+      }],
     });
     const blob = await Packer.toBlob(doc);
     download(blob, src.name.replace(/\.json$/i, "") + ".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");

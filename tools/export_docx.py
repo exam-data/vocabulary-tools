@@ -27,10 +27,12 @@ from docx.shared import Pt, Twips
 
 HEADER_FILL = "808080"      # 首行灰底（等同 wdColorGray50）
 ROW_HEIGHT = Pt(31.18)
-FONT = "华文中宋"
+FONT = "华文中宋"            # 默认（WPS/Office 自带）；本地无此字体时用 --font 覆盖
 FONT_SIZE_PT = 11           # 显式固定，保证断行计算确定
 CHAR_TWIPS = FONT_SIZE_PT * 20
-PAGE_TEXT_TWIPS = 9026      # A4 (11906) - 默认左右页边距 (1440*2)
+PAGE_W, PAGE_H = 16838, 11906          # A4 横向（twips）
+MARGIN = 1080                          # 0.75"
+PAGE_TEXT_TWIPS = PAGE_W - MARGIN * 2  # 14678
 CELL_MARGIN_TWIPS = 216     # 单元格左右内边距 (108*2)
 
 # 各字段列宽（twips）；释义为弹性列，吃掉剩余宽度
@@ -79,7 +81,7 @@ def shade(cell, fill):
     shd.set(qn("w:fill"), fill)
     cell._tc.get_or_add_tcPr().append(shd)
 
-def write_cell(cell, text, header=False):
+def write_cell(cell, text, header=False, cell_font=FONT):
     cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     if header:
         shade(cell, HEADER_FILL)
@@ -94,19 +96,47 @@ def write_cell(cell, text, header=False):
     for i, seg in enumerate(segs):
         run = p.add_run(seg)
         run.bold = header
-        run.font.name = FONT
+        run.font.name = cell_font
         run.font.size = Pt(FONT_SIZE_PT)
-        run._element.rPr.rFonts.set(qn("w:eastAsia"), FONT)
+        run._element.rPr.rFonts.set(qn("w:eastAsia"), cell_font)
         if i < len(segs) - 1:
             run.add_break()
 
-def compute_widths(fields):
-    """释义为弹性列吃掉剩余宽度；若总宽超过页面文字区，则所有列等比收缩适配"""
-    fixed = sum(FIELD_WIDTH.get(f, 1100) for f in fields if f != DEF_FIELD)
+def compute_widths(fields, rows):
+    """内容自适应列宽：按各列真实内容的最大长度计算，释义为弹性列吃掉剩余宽度；
+    若总宽超过页面文字区，则所有列等比收缩适配。
+    目标：绝大多数行保持单行（行高 31.18pt，18 词/页正好一页）。"""
+    LATIN = 122   # 11pt 拉丁字符约 6.1pt = 122 twips
+    CJK = 220     # 11pt 全角字 = 220 twips
+    def latin_w(v): return len(str(v)) * LATIN + CELL_MARGIN_TWIPS
+    def cjk_w(v): return len(str(v)) * CJK + CELL_MARGIN_TWIPS
     widths = []
     for f in fields:
-        widths.append(max(PAGE_TEXT_TWIPS - fixed, 1200) if f == DEF_FIELD
-                        else FIELD_WIDTH.get(f, 1100))
+        if f == DEF_FIELD:
+            widths.append(None)                      # 弹性列，最后定
+        elif f == "六级":
+            widths.append(700)                       # 表头「六级」两字+星号要单行放下
+        elif f in ("序号", "原序号", "词频", "综合得分"):
+            m = max(latin_w(r[f]) for r in rows if r.get(f) is not None)
+            widths.append(min(max(m, 500), 1000))
+        elif f == "单词":
+            m = max(latin_w(r["单词"]) for r in rows)
+            widths.append(min(max(m, 800), 2200))
+        elif f == "其他拼写":
+            m = max((latin_w(r[f]) for r in rows if r.get(f)), default=600)
+            widths.append(min(max(m, 800), 1600))
+        elif f == "分类名称":
+            m = max(cjk_w(r[f]) for r in rows if r.get(f))
+            widths.append(min(m, 3800))              # 横向页宽充裕，分类名单行放下
+        elif f == "CEFR等级":
+            widths.append(1200)                      # 表头「CEFR等级」要放得下
+        elif f in ("学术词汇", "高级词汇"):
+            widths.append(950)
+        else:
+            widths.append(1100)
+    fixed = sum(w for w in widths if w)
+    flex = max(PAGE_TEXT_TWIPS - fixed, 1400)
+    widths = [flex if w is None else w for w in widths]
     total = sum(widths)
     if total > PAGE_TEXT_TWIPS:
         widths = [w * PAGE_TEXT_TWIPS // total for w in widths]
@@ -116,10 +146,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("input", help="词汇 JSON 文件")
     ap.add_argument("-o", "--output", default="updated_doc.docx", help="输出 docx（默认 updated_doc.docx）")
-    ap.add_argument("--per-page", type=int, default=18, help="每页单词数（默认 18）")
+    ap.add_argument("--per-page", type=int, default=13, help="每页单词数（横向默认 13，行高含渲染余量）")
     ap.add_argument("--columns", help="要导出的字段，逗号分隔（默认全部字段）")
     ap.add_argument("--max-length", type=int, help="释义单行最大汉字数（默认按列宽自动计算）")
     ap.add_argument("--no-break-def", action="store_true", help="关闭释义断行")
+    ap.add_argument("--font", help=f"覆盖正文字体（默认 {FONT}；本机缺该字体时可换 Songti SC 等）")
     args = ap.parse_args()
 
     data = json.load(open(args.input, encoding="utf-8"))
@@ -137,7 +168,7 @@ def main():
         if bad:
             sys.exit(f"字段不存在：{bad}；可用字段：{list(rows[0].keys())}")
 
-    widths = compute_widths(fields)
+    widths = compute_widths(fields, rows)
     break_def = not args.no_break_def and DEF_FIELD in fields
     max_length = None
     if break_def:
@@ -148,21 +179,40 @@ def main():
     per_num, total = args.per_page, len(rows)
     page_num = total // per_num + (1 if total % per_num else 0)
 
+    # 横向 A4 + 窄边距
+    from docx.enum.section import WD_ORIENT
+    font = args.font or FONT
     doc = Document()
+    sec = doc.sections[0]
+    sec.orientation = WD_ORIENT.LANDSCAPE
+    sec.page_width, sec.page_height = Twips(PAGE_W), Twips(PAGE_H)
+    sec.left_margin = sec.right_margin = Twips(MARGIN)
+    sec.top_margin = sec.bottom_margin = Twips(MARGIN)
     normal = doc.styles["Normal"]
-    normal.font.name = FONT
+    normal.font.name = font
     normal.font.size = Pt(FONT_SIZE_PT)
-    normal.element.rPr.rFonts.set(qn("w:eastAsia"), FONT)
+    normal.element.rPr.rFonts.set(qn("w:eastAsia"), font)
 
     idx = 0
     for _ in range(page_num):
         table = doc.add_table(rows=per_num + 1, cols=len(fields))
         table.style = "Table Grid"          # 0.5pt 全黑边框
         table.autofit = False               # 固定列宽
-        tblPr = table._tbl.tblPr
-        layout = OxmlElement("w:tblLayout")
-        layout.set(qn("w:type"), "fixed")
-        tblPr.append(layout)
+        # 关键：tblW 总宽 + tblGrid 列宽都要写（LibreOffice 只认 tblGrid；tcW 只管 Word）
+        tbl = table._tbl
+        tblPr = tbl.tblPr
+        if tblPr.find(qn("w:tblLayout")) is None:
+            layout = OxmlElement("w:tblLayout")
+            layout.set(qn("w:type"), "fixed")
+            tblPr.append(layout)
+        tblW = tblPr.find(qn("w:tblW"))
+        if tblW is None:
+            tblW = OxmlElement("w:tblW")
+            tblPr.insert(0, tblW)
+        tblW.set(qn("w:type"), "dxa")
+        tblW.set(qn("w:w"), str(sum(widths)))
+        for gridCol, w in zip(tbl.tblGrid.findall(qn("w:gridCol")), widths):
+            gridCol.set(qn("w:w"), str(w))
         for ci, w in enumerate(widths):
             for cell in table.columns[ci].cells:
                 cell.width = Twips(w)
@@ -170,7 +220,7 @@ def main():
             row.height = ROW_HEIGHT
             row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
         for ci, name in enumerate(fields):
-            write_cell(table.rows[0].cells[ci], name, header=True)
+            write_cell(table.rows[0].cells[ci], name, header=True, cell_font=font)
         for ri in range(1, per_num + 1):
             if idx >= total:
                 break
@@ -180,11 +230,14 @@ def main():
                 text = "" if v is None else str(v)
                 if break_def and f == DEF_FIELD and text:
                     text = str_add_break_line(text, max_length)
-                write_cell(table.rows[ri].cells[ci], text)
+                write_cell(table.rows[ri].cells[ci], text, cell_font=font)
             idx += 1
-        doc.add_page_break()
         if idx >= total:
             break
+        sep = doc.add_paragraph()               # 换页段落在下一页开头，不产生空白页
+        sep.paragraph_format.page_break_before = True
+        sep.paragraph_format.space_before = Pt(0)
+        sep.paragraph_format.space_after = Pt(0)
 
     doc.save(args.output)
     print(f"ok: {total} 词 / {page_num} 页 -> {args.output}（美化+断行已内建，打开即是成品）")
