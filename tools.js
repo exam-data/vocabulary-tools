@@ -52,8 +52,9 @@ function fillColPicker() {
   let rows;
   try { [, rows] = tableOf(src.json); } catch (e) { log(e.message); return; }
   const picker = document.getElementById("col-picker");
+  const DEFAULT_COLS = ["序号", "词频", "单词", "释义"];
   picker.innerHTML = Object.keys(rows[0]).map((f) =>
-    `<label class="col-pill"><input type="checkbox" value="${f}" checked>${f}</label>`).join("");
+    `<label class="col-pill"><input type="checkbox" value="${f}"${DEFAULT_COLS.includes(f) ? " checked" : ""}>${f}</label>`).join("");
 }
 function pickCols(on) {
   document.querySelectorAll("#col-picker input[type=checkbox]").forEach((c) => (c.checked = on));

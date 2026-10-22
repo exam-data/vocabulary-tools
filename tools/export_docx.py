@@ -147,7 +147,7 @@ def main():
     ap.add_argument("input", help="词汇 JSON 文件")
     ap.add_argument("-o", "--output", default="updated_doc.docx", help="输出 docx（默认 updated_doc.docx）")
     ap.add_argument("--per-page", type=int, default=13, help="每页单词数（横向默认 13，行高含渲染余量）")
-    ap.add_argument("--columns", help="要导出的字段，逗号分隔（默认全部字段）")
+    ap.add_argument("--columns", help="要导出的字段，逗号分隔（默认：序号,词频,单词,释义）")
     ap.add_argument("--max-length", type=int, help="释义单行最大汉字数（默认按列宽自动计算）")
     ap.add_argument("--no-break-def", action="store_true", help="关闭释义断行")
     ap.add_argument("--font", help=f"覆盖正文字体（默认 {FONT}；本机缺该字体时可换 Songti SC 等）")
@@ -161,12 +161,14 @@ def main():
             break
     if rows is None:
         sys.exit("JSON 顶层没有找到词条列表")
-    fields = list(rows[0].keys())
+    DEFAULT_COLS = ["序号", "词频", "单词", "释义"]
     if args.columns:
         fields = [f.strip() for f in args.columns.split(",")]
         bad = [f for f in fields if f not in rows[0]]
         if bad:
             sys.exit(f"字段不存在：{bad}；可用字段：{list(rows[0].keys())}")
+    else:
+        fields = [f for f in DEFAULT_COLS if f in rows[0]]
 
     widths = compute_widths(fields, rows)
     break_def = not args.no_break_def and DEF_FIELD in fields
