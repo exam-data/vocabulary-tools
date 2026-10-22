@@ -30,6 +30,34 @@ async function loadRemote(slot, ds) {
   if (!resp.ok) { log(`失败：HTTP ${resp.status}`); return; }
   loaded[slot] = { name: ds + ".json", json: await resp.json() };
   log(`已载入 ${ds}（无需再选文件）`);
+  if (slot === "docx") fillColPicker();
+}
+
+// 选择本地文件后同样列出可选列
+document.getElementById("docx-file").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    loaded.docx = { name: f.name, json: JSON.parse(await f.text()) };
+    fillColPicker();
+    log(`已读取 ${f.name}`);
+  } catch (err) { log("JSON 解析失败：" + err.message); }
+});
+
+function fillColPicker() {
+  const src = loaded.docx;
+  if (!src) return;
+  let rows;
+  try { [, rows] = tableOf(src.json); } catch (e) { log(e.message); return; }
+  const picker = document.getElementById("col-picker");
+  picker.innerHTML = Object.keys(rows[0]).map((f) =>
+    `<label class="col-pill"><input type="checkbox" value="${f}" checked>${f}</label>`).join("");
+}
+function pickCols(on) {
+  document.querySelectorAll("#col-picker input[type=checkbox]").forEach((c) => (c.checked = on));
+}
+function checkedCols() {
+  return [...document.querySelectorAll("#col-picker input:checked")].map((c) => c.value);
 }
 async function getJson(slot, inputId) {
   if (loaded[slot]) return loaded[slot];
@@ -56,13 +84,10 @@ async function runDocx() {
     const src = await getJson("docx", "docx-file");
     if (!src) return;
     const [, rows] = tableOf(src.json);
-    let fields = Object.keys(rows[0]);
-    const colsInput = document.getElementById("docx-cols").value.trim();
-    if (colsInput) {
-      fields = colsInput.split(",").map((s) => s.trim());
-      const bad = fields.filter((f) => !(f in rows[0]));
-      if (bad.length) { log(`字段不存在：${bad.join("、")}；可用：${Object.keys(rows[0]).join("、")}`); return; }
-    }
+    let fields = checkedCols();
+    if (!fields.length) { log("请至少勾选一列"); return; }
+    const bad = fields.filter((f) => !(f in rows[0]));
+    if (bad.length) { log(`字段不存在：${bad.join("、")}（数据换过了？重新勾选）`); return; }
     const perPage = Math.max(1, parseInt(document.getElementById("per-page").value) || 18);
     const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, WidthType,
             PageBreak, AlignmentType, VerticalAlign, HeightRule, BorderStyle } = docx;

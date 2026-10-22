@@ -29,7 +29,12 @@
     </div>
     <div class="row">
       <label>每页词数 <input type="number" id="per-page" value="18" min="5" max="50"></label>
-      <label>导出列 <input type="text" id="docx-cols" placeholder="留空=全部字段，或：序号,单词,释义,分类名称"></label>
+      <div class="col-row">
+        <span class="or">导出列：</span>
+        <span id="col-picker" class="col-picker"><span class="hint">选择文件或载入线上数据后列出可选列</span></span>
+        <button class="mini" onclick="pickCols(true)">全选</button>
+        <button class="mini" onclick="pickCols(false)">清空</button>
+      </div>
     </div>
     <button class="go" onclick="runDocx()">生成并下载 .docx</button>
   </section>

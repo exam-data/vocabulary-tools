@@ -123,3 +123,12 @@ button.mini:hover { border-color: #192a56; color: #192a56; }
 button.go { padding: 9px 22px; border: none; border-radius: 8px; background: #192a56; color: #fff; font-size: 14px; cursor: pointer; }
 button.go:hover { background: #243a6e; }
 .log-card pre { background: #0f1b33; color: #b8e0b9; padding: 14px; border-radius: 8px; font-size: 12.5px; min-height: 90px; max-height: 220px; overflow: auto; white-space: pre-wrap; }
+
+/* 列勾选 */
+.col-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.col-picker { display: flex; gap: 6px; flex-wrap: wrap; }
+.col-picker .hint { color: #9aa0a6; font-size: 12.5px; }
+.col-pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
+  border: 1px solid #d5dae3; border-radius: 999px; font-size: 12.5px; cursor: pointer; color: #5a6a85; }
+.col-pill:has(input:checked) { border-color: #192a56; color: #192a56; background: #eef2fa; font-weight: 600; }
+.col-pill input { accent-color: #192a56; }
