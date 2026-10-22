@@ -26,7 +26,7 @@ python3 -m http.server 8000   # 然后访问 http://localhost:8000
 | 工具 | 用途 | 用法 |
 |---|---|---|
 | `tools/export_docx.py` | JSON → Word 初版（每页一表） | `python3 tools/export_docx.py netem_full_list.json -o out.docx` |
-| `tools/macro.js` | WPS 宏：美化 Word 表格（保留自旧流程） | 在 WPS 宏编辑器中执行 |
+| `tools/macro.js` | WPS 宏：美化 Word 表格（**旧流程遗留**；新生成器已内建美化，无需再用） | 在 WPS 宏编辑器中执行 |
 | `tools/format_doc_def.py` | Word 释义列按宽度断行 | `python3 tools/format_doc_def.py in.docx -o out.docx --max-length 20` |
 | `tools/json_to_sql.py` | JSON → MySQL 导入文件 | `python3 tools/json_to_sql.py netem_full_list.json` |
 | `tools/sql_to_json.py` | SQL → JSON（兼容旧数据） | `python3 tools/sql_to_json.py netem_full_list.sql` |
@@ -36,11 +36,11 @@ python3 -m http.server 8000   # 然后访问 http://localhost:8000
 
 ```bash
 pip install python-docx          # 唯一依赖
-python3 tools/export_docx.py netem_full_list.json -o draft.docx
-# WPS 打开 draft.docx，执行 tools/macro.js 美化
+python3 tools/export_docx.py netem_full_list.json -o draft.docx   # 美化已内建，打开即成品
 # （可选）python3 tools/format_doc_def.py draft.docx -o final.docx --max-length 20
-# 美化后再跑一遍 macro.js
 ```
+
+也可以直接用网页版 [tools.html](https://exam-data.github.io/vocabulary-tools/tools.html)，浏览器里点一下就导出美化好的 Word。
 
 详见 [docs/how-to-generate-docs.md](docs/how-to-generate-docs.md)。
 

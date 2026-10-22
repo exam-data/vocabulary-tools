@@ -44,7 +44,13 @@ function tableOf(json) {
   throw new Error("JSON 顶层没有找到词条列表");
 }
 
-/* ---------- ① JSON → docx ---------- */
+/* ---------- ① JSON → docx（内建美化：等效 tools/macro.js） ---------- */
+const DOCX_STYLE = {
+  headerFill: "808080",          // 首行灰底（wdColorGray50）
+  border: { style: "single", size: 4, color: "000000" },  // 0.5pt 黑边
+  rowHeight: 624,                // 31.18pt ≈ 1.1cm（行高至少）
+  font: "华文中宋",
+};
 async function runDocx() {
   try {
     const src = await getJson("docx", "docx-file");
@@ -58,24 +64,46 @@ async function runDocx() {
       if (bad.length) { log(`字段不存在：${bad.join("、")}；可用：${Object.keys(rows[0]).join("、")}`); return; }
     }
     const perPage = Math.max(1, parseInt(document.getElementById("per-page").value) || 18);
-    const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, WidthType, PageBreak } = docx;
+    const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, WidthType,
+            PageBreak, AlignmentType, VerticalAlign, HeightRule, BorderStyle } = docx;
+    const B = { style: BorderStyle.SINGLE, size: DOCX_STYLE.border.size, color: DOCX_STYLE.border.color };
+    const borders = { top: B, left: B, bottom: B, right: B, insideHorizontal: B, insideVertical: B };
 
-    const cell = (text, bold = false) =>
-      new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: String(text ?? ""), bold })] })] });
+    const cell = (text, header = false) =>
+      new TableCell({
+        shading: header ? { fill: DOCX_STYLE.headerFill } : undefined,
+        verticalAlign: VerticalAlign.CENTER,
+        children: [new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 0, after: 0, line: 240 },
+          children: [new TextRun({ text: String(text ?? ""), bold: header, font: DOCX_STYLE.font })],
+        })],
+      });
+
     const children = [];
     let idx = 0;
     while (idx < rows.length) {
-      const trows = [new TableRow({ children: fields.map((f) => cell(f, true)), tableHeader: true })];
+      const trows = [new TableRow({
+        children: fields.map((f) => cell(f, true)),
+        tableHeader: true,
+        height: { value: DOCX_STYLE.rowHeight, rule: HeightRule.ATLEAST },
+      })];
       for (let i = 0; i < perPage && idx < rows.length; i++, idx++) {
-        trows.push(new TableRow({ children: fields.map((f) => cell(rows[idx][f] ?? "")) }));
+        trows.push(new TableRow({
+          children: fields.map((f) => cell(rows[idx][f])),
+          height: { value: DOCX_STYLE.rowHeight, rule: HeightRule.ATLEAST },
+        }));
       }
-      children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: trows }));
+      children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders, rows: trows }));
       if (idx < rows.length) children.push(new Paragraph({ children: [new PageBreak()] }));
     }
-    const doc = new Document({ sections: [{ children }] });
+    const doc = new Document({
+      styles: { default: { document: { run: { font: DOCX_STYLE.font } } } },
+      sections: [{ children }],
+    });
     const blob = await Packer.toBlob(doc);
     download(blob, src.name.replace(/\.json$/i, "") + ".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-    log(`生成完成：${rows.length} 词，每页 ${perPage} 词。WPS 中执行 macro.js 美化。`);
+    log(`生成完成：${rows.length} 词，每页 ${perPage} 词。已内建美化（首行灰底/边框/居中/行高），打开即是成品。`);
   } catch (e) { log("出错：" + e.message); }
 }
 
