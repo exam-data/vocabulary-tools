@@ -89,8 +89,12 @@ const FIELD_WIDTH = {            // 各字段列宽（twips），释义为弹性
   "CEFR等级": 650, "学术词汇": 750, "高级词汇": 750, "综合得分": 750,
 };
 function computeWidths(fields) {
+  // 释义为弹性列；总宽超过页面文字区时所有列等比收缩
   const fixed = fields.filter(f => f !== "释义").reduce((s, f) => s + (FIELD_WIDTH[f] ?? 1100), 0);
-  return fields.map(f => f === "释义" ? Math.max(PAGE_TEXT_TWIPS - fixed, 1200) : (FIELD_WIDTH[f] ?? 1100));
+  let widths = fields.map(f => f === "释义" ? Math.max(PAGE_TEXT_TWIPS - fixed, 1200) : (FIELD_WIDTH[f] ?? 1100));
+  const total = widths.reduce((a, b) => a + b, 0);
+  if (total > PAGE_TEXT_TWIPS) widths = widths.map(w => Math.floor(w * PAGE_TEXT_TWIPS / total));
+  return widths;
 }
 function breakDef(s, maxLen, seps = "、；") {
   s = s.trim();
@@ -123,7 +127,7 @@ async function runDocx() {
     const widths = computeWidths(fields);
     const defIdx = fields.indexOf("释义");
     const maxLen = defIdx >= 0 ? Math.max(1, Math.floor((widths[defIdx] - CELL_MARGIN_TWIPS) / CHAR_TWIPS)) : 0;
-    if (defIdx >= 0) log(`释义列宽 ${widths[defIdx]} twips → 单行最大 ${maxLen} 字（自动），超长释义按顿号/分号断行`);
+    if (defIdx >= 0) log(`释义列宽 ${widths[defIdx]} twips → 单行最大 ${maxLen} 字（随勾选列数联动），超长释义按顿号/分号断行`);
     const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, WidthType,
             PageBreak, AlignmentType, VerticalAlign, HeightRule, BorderStyle, TableLayoutType } = docx;
     const B = { style: BorderStyle.SINGLE, size: DOCX_STYLE.border.size, color: DOCX_STYLE.border.color };

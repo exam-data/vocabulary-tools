@@ -101,13 +101,15 @@ def write_cell(cell, text, header=False):
             run.add_break()
 
 def compute_widths(fields):
+    """释义为弹性列吃掉剩余宽度；若总宽超过页面文字区，则所有列等比收缩适配"""
     fixed = sum(FIELD_WIDTH.get(f, 1100) for f in fields if f != DEF_FIELD)
     widths = []
     for f in fields:
-        if f == DEF_FIELD:
-            widths.append(max(PAGE_TEXT_TWIPS - fixed, 1200))
-        else:
-            widths.append(FIELD_WIDTH.get(f, 1100))
+        widths.append(max(PAGE_TEXT_TWIPS - fixed, 1200) if f == DEF_FIELD
+                        else FIELD_WIDTH.get(f, 1100))
+    total = sum(widths)
+    if total > PAGE_TEXT_TWIPS:
+        widths = [w * PAGE_TEXT_TWIPS // total for w in widths]
     return widths
 
 def main():
@@ -141,7 +143,7 @@ def main():
     if break_def:
         def_w = widths[fields.index(DEF_FIELD)]
         max_length = args.max_length or max(1, (def_w - CELL_MARGIN_TWIPS) // CHAR_TWIPS)
-        print(f"释义列宽 {def_w} twips → 单行最大 {max_length} 字（{'手动指定' if args.max_length else '自动计算'}）")
+        print(f"释义列宽 {def_w} twips → 单行最大 {max_length} 字（{'手动指定' if args.max_length else '自动计算，随勾选列数联动'}）")
 
     per_num, total = args.per_page, len(rows)
     page_num = total // per_num + (1 if total % per_num else 0)
