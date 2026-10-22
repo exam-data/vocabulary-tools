@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>考研/四六级词汇数据浏览器 · exam-data</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>词汇数据浏览器</h1>
+  <div class="dataset-switch">
+    <button class="ds-btn active" data-ds="netem">考研 5530</button>
+    <button class="ds-btn" data-ds="cet">四六级 5278</button>
+  </div>
+</header>
+
+<div class="controls">
+  <input id="search" type="search" placeholder="搜索单词或释义…" autocomplete="off">
+  <select id="category"><option value="">全部分类</option></select>
+  <select id="sort">
+    <option value="id">按序号</option>
+    <option value="freq">按词频</option>
+    <option value="alpha">按字母</option>
+  </select>
+  <label id="cet6-wrap" class="hidden"><input type="checkbox" id="cet6"> 仅六级</label>
+  <span id="count"></span>
+</div>
+
+<main>
+  <table id="grid">
+    <thead></thead>
+    <tbody></tbody>
+  </table>
+  <div id="sentinel">加载中…</div>
+</main>
+
+<footer>
+  数据实时取自
+  <a href="https://github.com/exam-data/NETEMVocabulary">NETEMVocabulary</a> 与
+  <a href="https://github.com/exam-data/CETVocabulary">CETVocabulary</a>
+  仓库 master 分支 · 基于 CC BY-NC-SA 4.0
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
