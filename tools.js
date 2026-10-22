@@ -1,7 +1,9 @@
 /* 词汇工具箱：浏览器本地执行，无服务器 */
 const REMOTE = {
   netem: "https://raw.githubusercontent.com/exam-data/NETEMVocabulary/master/netem_full_list.json",
-  cet: "https://raw.githubusercontent.com/exam-data/CETVocabulary/master/cet_full_list.json",
+  cet: "https://raw.githubusercontent.com/exam-data/CETVocabulary/main/cet_full_list.json",
+  netem_beyond: "https://raw.githubusercontent.com/exam-data/NETEMVocabulary/master/netem_beyond_ks3000.json",
+  cet_beyond: "https://raw.githubusercontent.com/exam-data/CETVocabulary/main/cet_beyond_ks3000.json",
 };
 const loaded = { docx: null, j2s: null };  // {name, json}
 

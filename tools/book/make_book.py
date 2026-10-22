@@ -35,6 +35,8 @@ def main():
     ap.add_argument("--input", required=True, help="词汇数据 JSON")
     ap.add_argument("--mode", choices=["rank", "category"], default="rank",
                     help="rank=连续排序流（默认）；category=按语义分类分节")
+    ap.add_argument("--sort", choices=["rank", "score"], default="rank",
+                    help="rank=按数据序号（默认）；score=按综合得分降序（学习优先级）")
     ap.add_argument("--title", default="词汇词书")
     ap.add_argument("--subtitle", default="")
     ap.add_argument("-o", "--output", help="输出 PDF 路径（默认 Desktop/<标题>.pdf）")
@@ -59,10 +61,16 @@ def main():
             "rank": r.get("序号", 0), "word": r["单词"], "mean": r["释义"],
             "cefr": r.get("CEFR等级") or "", "nawl": r.get("学术词汇"), "c1c2": r.get("高级词汇"),
             "freq": r.get("词频"), "exam": r.get("真题次数", 0) or 0,
+            "score": r.get("综合得分"),
             "en": r.get("例句") or "", "cn": r.get("例句翻译") or "", "src": r.get("例句来源") or "",
             "cat": r.get("分类名称") or "",
         })
-    entries.sort(key=lambda e: e["rank"])
+    if args.sort == "score" and any(e.get("score") is not None for e in entries):
+        entries.sort(key=lambda e: -(e["score"] or 0))
+    else:
+        entries.sort(key=lambda e: e["rank"])
+    for i, e in enumerate(entries, 1):
+        e["disp"] = i
 
     def meta(e):
         CEFR_TEXT = {"A1": "cefraone", "A2": "cefratwo", "B1": "cefrbone",
@@ -109,12 +117,12 @@ def main():
             day = cat_day.get(c, "")
             parts.append(rf"\catsec{{{esc(name)}}}{{{len(es)}}}{{{esc(day)}}}")
             for e in es:
-                parts.append(rf"\entry{{{e['rank']}}}{{{esc(e['word'])}}}{{{esc(e['mean'])}}}{{{meta(e)}}}{{{esc(e['en'])}}}{{{esc(e['cn'])}}}{{{esc(e['src'])}}}")
+                parts.append(rf"\entry{{{e['disp']}}}{{{esc(e['word'])}}}{{{esc(e['mean'])}}}{{{meta(e)}}}{{{esc(e['en'])}}}{{{esc(e['cn'])}}}{{{esc(e['src'])}}}")
         parts.append(r"\end{multicols}")
     else:
         parts.append(r"\begin{multicols}{2}")
         for e in entries:
-            parts.append(rf"\entry{{{e['rank']}}}{{{esc(e['word'])}}}{{{esc(e['mean'])}}}{{{meta(e)}}}{{{esc(e['en'])}}}{{{esc(e['cn'])}}}{{{esc(e['src'])}}}")
+            parts.append(rf"\entry{{{e['disp']}}}{{{esc(e['word'])}}}{{{esc(e['mean'])}}}{{{meta(e)}}}{{{esc(e['en'])}}}{{{esc(e['cn'])}}}{{{esc(e['src'])}}}")
         parts.append(r"\end{multicols}")
     body = "\n".join(parts)
 

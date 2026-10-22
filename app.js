@@ -9,12 +9,20 @@ const DATASETS = {
     label: "考研·智能重排", hasCet6: false, enriched: true,
   },
   cet: {
-    url: "https://raw.githubusercontent.com/exam-data/CETVocabulary/master/cet_full_list.json",
+    url: "https://raw.githubusercontent.com/exam-data/CETVocabulary/main/cet_full_list.json",
     label: "四六级·词频序", hasCet6: true,
   },
   cet_reranked: {
-    url: "https://raw.githubusercontent.com/exam-data/CETVocabulary/master/cet_reranked.json",
+    url: "https://raw.githubusercontent.com/exam-data/CETVocabulary/main/cet_reranked.json",
     label: "四六级·智能重排", hasCet6: true, enriched: true,
+  },
+  netem_beyond: {
+    url: "https://raw.githubusercontent.com/exam-data/NETEMVocabulary/master/netem_beyond_ks3000.json",
+    label: "考研·超课标", hasCet6: false, enriched: true,
+  },
+  cet_beyond: {
+    url: "https://raw.githubusercontent.com/exam-data/CETVocabulary/main/cet_beyond_ks3000.json",
+    label: "四六级·超课标", hasCet6: true, enriched: true,
   },
 };
 
