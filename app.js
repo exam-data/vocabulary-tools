@@ -1,27 +1,41 @@
-/* 数据浏览器：纯静态，直接拉取两个数据仓 master 分支的 JSON */
+/* 数据浏览器：纯静态，直接拉取数据仓 master 分支的 JSON */
 const DATASETS = {
   netem: {
     url: "https://raw.githubusercontent.com/exam-data/NETEMVocabulary/master/netem_full_list.json",
-    label: "考研",
-    hasCet6: false,
+    label: "考研·词频序", hasCet6: false,
+  },
+  netem_reranked: {
+    url: "https://raw.githubusercontent.com/exam-data/NETEMVocabulary/master/netem_reranked.json",
+    label: "考研·智能重排", hasCet6: false, enriched: true,
   },
   cet: {
     url: "https://raw.githubusercontent.com/exam-data/CETVocabulary/master/cet_full_list.json",
-    label: "四六级",
-    hasCet6: true,
+    label: "四六级·词频序", hasCet6: true,
+  },
+  cet_reranked: {
+    url: "https://raw.githubusercontent.com/exam-data/CETVocabulary/master/cet_reranked.json",
+    label: "四六级·智能重排", hasCet6: true, enriched: true,
   },
 };
 
+// 列定义：key -> 表头/取值渲染/是否默认（enriched 数据集才显示）
+const COLUMNS = [
+  { key: "序号", label: "#", cls: "num", get: (r) => r["序号"] },
+  { key: "单词", label: "单词", cls: "word", get: (r, cet) => esc(r["单词"]) + (cet && r["六级"] ? '<span class="cet6">★</span>' : ""), raw: true },
+  { key: "释义", label: "释义", cls: "def", get: (r) => r["释义"] },
+  { key: "分类名称", label: "分类", cls: "cat", get: (r) => r["分类名称"] },
+  { key: "CEFR等级", label: "CEFR", cls: "cat", enriched: true, get: (r) => r["CEFR等级"] || "" },
+  { key: "学术词汇", label: "学术", cls: "cat", enriched: true, get: (r) => r["学术词汇"] ? "是" : "" },
+  { key: "高级词汇", label: "高级", cls: "cat", enriched: true, get: (r) => r["高级词汇"] ? "是" : "" },
+  { key: "综合得分", label: "评分", cls: "num", enriched: true, get: (r) => r["综合得分"] ?? "" },
+  { key: "其他拼写", label: "其他拼写", cls: "variant", get: (r) => r["其他拼写"] },
+  { key: "词频", label: "词频", cls: "num", get: (r) => r["词频"] ?? "" },
+];
+
 const PAGE = 200;
 const state = {
-  ds: "netem",
-  data: { netem: null, cet: null },
-  filtered: [],
-  shown: 0,
-  search: "",
-  category: "",
-  sort: "id",
-  cet6only: false,
+  ds: "netem", data: {}, filtered: [], shown: 0,
+  search: "", category: "", sort: "id", cet6only: false,
 };
 
 const $ = (s) => document.querySelector(s);
@@ -34,9 +48,14 @@ async function load(ds) {
   const resp = await fetch(DATASETS[ds].url);
   if (!resp.ok) throw new Error(`拉取失败 HTTP ${resp.status}`);
   const json = await resp.json();
-  const rows = json[Object.keys(json)[0]];
+  const rows = json[Object.keys(json).find((k) => Array.isArray(json[k]))];
   state.data[ds] = rows;
   return rows;
+}
+
+function activeColumns() {
+  const enriched = DATASETS[state.ds].enriched;
+  return COLUMNS.filter((c) => !c.enriched || enriched);
 }
 
 function applyFilter() {
@@ -62,26 +81,18 @@ function esc(s) {
 }
 
 function renderMore() {
-  const chunk = state.filtered.slice(state.shown, state.shown + PAGE);
   const cet = DATASETS[state.ds].hasCet6;
-  const html = chunk.map((r) => `
-    <tr>
-      <td class="num">${r["序号"]}</td>
-      <td class="word">${esc(r["单词"])}${cet && r["六级"] ? '<span class="cet6">★</span>' : ""}</td>
-      <td class="def">${esc(r["释义"])}</td>
-      <td class="cat">${esc(r["分类名称"] || "")}</td>
-      <td class="variant">${esc(r["其他拼写"] || "")}</td>
-      <td class="num">${r["词频"] ?? ""}</td>
-    </tr>`).join("");
+  const cols = activeColumns();
+  const chunk = state.filtered.slice(state.shown, state.shown + PAGE);
+  const html = chunk.map((r) => "<tr>" + cols.map((c) =>
+    `<td class="${c.cls}">${c.raw ? c.get(r, cet) : esc(c.get(r, cet))}</td>`).join("") + "</tr>").join("");
   tbody.insertAdjacentHTML("beforeend", html);
   state.shown += chunk.length;
   sentinel.textContent = state.shown < state.filtered.length ? "向下滚动加载更多…" : "到底啦";
 }
 
 function renderHead() {
-  $("#grid thead").innerHTML = `<tr>
-    <th>#</th><th>单词</th><th>释义</th><th>分类</th><th>其他拼写</th><th>词频</th>
-  </tr>`;
+  $("#grid thead").innerHTML = "<tr>" + activeColumns().map((c) => `<th>${c.label}</th>`).join("") + "</tr>";
   $("#cet6-wrap").classList.toggle("hidden", !DATASETS[state.ds].hasCet6);
 }
 
@@ -105,7 +116,6 @@ async function switchDataset(ds) {
   }
 }
 
-// 事件绑定
 document.querySelectorAll(".ds-btn").forEach((b) =>
   b.addEventListener("click", () => switchDataset(b.dataset.ds)));
 $("#search").addEventListener("input", (e) => { state.search = e.target.value; applyFilter(); });
@@ -113,7 +123,6 @@ $("#category").addEventListener("change", (e) => { state.category = e.target.val
 $("#sort").addEventListener("change", (e) => { state.sort = e.target.value; applyFilter(); });
 $("#cet6").addEventListener("change", (e) => { state.cet6only = e.target.checked; applyFilter(); });
 
-// 滚动到底自动加载
 new IntersectionObserver((entries) => {
   if (entries[0].isIntersecting && state.shown < state.filtered.length) renderMore();
 }).observe(sentinel);

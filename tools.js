@@ -183,6 +183,7 @@ const FIELD_MAP = {
   "其他拼写": ["variant", "varchar(255)"], "分类名称": ["category", "varchar(255)"],
   "原序号": ["orig_id", "int"], "CEFR等级": ["cefr", "varchar(8)"],
   "学术词汇": ["nawl", "tinyint(1)"], "高级词汇": ["c1c2", "tinyint(1)"], "综合得分": ["score", "float"],
+  "例句": ["sentence", "varchar(512)"], "例句翻译": ["sentence_cn", "varchar(512)"], "例句来源": ["sentence_src", "varchar(255)"],
 };
 function sqlQuote(v) {
   if (v === null || v === undefined) return "NULL";
@@ -223,7 +224,8 @@ async function runJson2Sql() {
 /* ---------- ③ SQL → JSON ---------- */
 const COLUMN_MAP = { id: "序号", frequency: "词频", cet6: "六级", word: "单词",
   definition: "释义", variant: "其他拼写", category: "分类名称",
-  orig_id: "原序号", cefr: "CEFR等级", nawl: "学术词汇", c1c2: "高级词汇", score: "综合得分" };
+  orig_id: "原序号", cefr: "CEFR等级", nawl: "学术词汇", c1c2: "高级词汇", score: "综合得分",
+  sentence: "例句", sentence_cn: "例句翻译", sentence_src: "例句来源" };
 const TITLE_MAP = { netem_full_list: "5530考研词汇词频排序表", cet_full_list: "四六级词汇词频排序表" };
 
 function splitValues(s) {

@@ -24,6 +24,10 @@ FIELD_MAP = {
     "学术词汇": ("nawl",       "tinyint(1)"),
     "高级词汇": ("c1c2",      "tinyint(1)"),
     "综合得分": ("score",      "float"),
+    # 富化字段
+    "例句":    ("sentence",    "varchar(512)"),
+    "例句翻译": ("sentence_cn", "varchar(512)"),
+    "例句来源": ("sentence_src", "varchar(255)"),
 }
 
 def quote(v):

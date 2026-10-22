@@ -12,6 +12,9 @@ import argparse, os, re, sys
 COLUMN_MAP = {  # SQL 列名 -> JSON 中文字段
     "id": "序号", "frequency": "词频", "cet6": "六级",
     "word": "单词", "definition": "释义", "variant": "其他拼写", "category": "分类名称",
+    "orig_id": "原序号", "cefr": "CEFR等级", "nawl": "学术词汇", "c1c2": "高级词汇",
+    "score": "综合得分",
+    "sentence": "例句", "sentence_cn": "例句翻译", "sentence_src": "例句来源",
 }
 TITLE_MAP = {
     "netem_full_list": "5530考研词汇词频排序表",
@@ -46,8 +49,12 @@ def split_values(s):
 def parse_value(v, col):
     if v == "NULL":
         return None
-    if col in ("id", "frequency"):
+    if col in ("id", "frequency", "orig_id"):
         return int(v)
+    if col == "score":
+        return float(v)
+    if col in ("nawl", "c1c2"):
+        return v == "1"
     return v
 
 def main():
