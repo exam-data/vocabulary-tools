@@ -2,7 +2,8 @@
 
 exam-data 词汇数据的**统一工具箱与可视化入口**。数据本身存放在数据仓库（[NETEMVocabulary](https://github.com/exam-data/NETEMVocabulary) 考研 5530 词、[CETVocabulary](https://github.com/exam-data/CETVocabulary) 四六级 5278 词），本仓库提供：
 
-- **`web`（本仓库根目录）**：纯静态词汇数据浏览器——搜索、分类筛选、词频/字母排序、六级星标过滤，打开网页即用，**不需要任何本地环境**。数据实时取自两个数据仓的 master 分支。
+- **`index.html`（数据浏览）**：纯静态词汇数据浏览器——搜索、分类筛选、词频/字母排序、六级星标过滤，打开网页即用，**不需要任何本地环境**。数据实时取自两个数据仓的 master 分支。
+- **`tools.html`（工具网页版）**：生成 Word 单词文档、JSON⇄SQL 互转，**全部在浏览器本地完成**，无需 Python；可直接载入线上数据，免去上传。
 - **`tools/`**：命令行工具。JSON 是唯一数据真源，SQL 由 JSON 生成，**不再需要 MySQL**。
 - **`docs/`**：流程文档。
 

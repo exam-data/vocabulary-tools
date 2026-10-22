@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>词汇工具箱 · exam-data</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+</head>
+<body>
+<header>
+  <h1>词汇工具箱（网页版）</h1>
+  <div class="dataset-switch">
+    <button class="ds-btn" onclick="location.href='index.html'">← 数据浏览</button>
+  </div>
+</header>
+
+<div class="toolnote">全部在浏览器本地完成，文件不会上传。生成 Word 后如需美化，在 WPS 里执行 <code>tools/macro.js</code>。</div>
+
+<main class="tools">
+
+  <section class="card">
+    <h2>① 生成 Word 单词文档</h2>
+    <div class="row">
+      <input type="file" id="docx-file" accept=".json">
+      <span class="or">或载入线上数据：</span>
+      <button class="mini" onclick="loadRemote('docx','netem')">考研 5530</button>
+      <button class="mini" onclick="loadRemote('docx','cet')">四六级 5278</button>
+    </div>
+    <div class="row">
+      <label>每页词数 <input type="number" id="per-page" value="18" min="5" max="50"></label>
+      <label>导出列 <input type="text" id="docx-cols" placeholder="留空=全部字段，或：序号,单词,释义,分类名称"></label>
+    </div>
+    <button class="go" onclick="runDocx()">生成并下载 .docx</button>
+  </section>
+
+  <section class="card">
+    <h2>② JSON → SQL</h2>
+    <div class="row">
+      <input type="file" id="j2s-file" accept=".json">
+      <span class="or">或载入线上数据：</span>
+      <button class="mini" onclick="loadRemote('j2s','netem')">考研</button>
+      <button class="mini" onclick="loadRemote('j2s','cet')">四六级</button>
+    </div>
+    <button class="go" onclick="runJson2Sql()">转换并下载 .sql</button>
+  </section>
+
+  <section class="card">
+    <h2>③ SQL → JSON</h2>
+    <div class="row"><input type="file" id="s2j-file" accept=".sql"></div>
+    <button class="go" onclick="runSql2Json()">转换并下载 .json</button>
+  </section>
+
+  <section class="card log-card">
+    <h2>运行日志</h2>
+    <pre id="log">就绪。</pre>
+  </section>
+
+</main>
+
+<footer>纯浏览器端工具 · 数据基于 CC BY-NC-SA 4.0 · 程序 MIT</footer>
+<script src="tools.js"></script>
+</body>
+</html>
