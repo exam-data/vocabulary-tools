@@ -58,7 +58,7 @@ async function runDocx() {
       if (bad.length) { log(`字段不存在：${bad.join("、")}；可用：${Object.keys(rows[0]).join("、")}`); return; }
     }
     const perPage = Math.max(1, parseInt(document.getElementById("per-page").value) || 18);
-    const { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType, PageBreak, AlignmentParameter } = docx;
+    const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, WidthType, PageBreak } = docx;
 
     const cell = (text, bold = false) =>
       new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: String(text ?? ""), bold })] })] });
