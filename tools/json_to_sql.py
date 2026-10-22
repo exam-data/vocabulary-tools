@@ -18,12 +18,20 @@ FIELD_MAP = {
     "释义":    ("definition", "varchar(255)"),
     "其他拼写": ("variant",    "varchar(255)"),
     "分类名称": ("category",   "varchar(255)"),
+    # 智能重排数据扩展字段
+    "原序号":  ("orig_id",    "int"),
+    "CEFR等级": ("cefr",       "varchar(8)"),
+    "学术词汇": ("nawl",       "tinyint(1)"),
+    "高级词汇": ("c1c2",      "tinyint(1)"),
+    "综合得分": ("score",      "float"),
 }
 
 def quote(v):
     if v is None:
         return "NULL"
-    if isinstance(v, int):
+    if isinstance(v, bool):
+        return "1" if v else "0"
+    if isinstance(v, (int, float)):
         return str(v)
     return "'" + str(v).replace("\\", "\\\\").replace("'", "\\'") + "'"
 
@@ -34,8 +42,14 @@ def main():
     args = ap.parse_args()
 
     data = json.load(open(args.input, encoding="utf-8"))
-    table_key = list(data)[0]
-    rows = data[table_key]
+    # 顶层取第一个「词典列表」作为数据（兼容带说明字段的文件头）
+    table_key, rows = None, None
+    for k, v in data.items():
+        if isinstance(v, list) and v and isinstance(v[0], dict):
+            table_key, rows = k, v
+            break
+    if rows is None:
+        sys.exit("JSON 顶层没有找到词条列表")
     table_name = os.path.splitext(os.path.basename(args.input))[0]
     out_path = args.output or os.path.splitext(args.input)[0] + ".sql"
 
@@ -50,8 +64,10 @@ def main():
         null = "NOT NULL" if col == "id" else "NULL DEFAULT NULL"
         if typ.startswith("varchar"):
             col_lines.append(f"  `{col}` {typ} CHARACTER SET utf8mb4 COLLATE utf8mb4_bin {null}")
+        elif typ == "int":
+            col_lines.append(f"  `{col}` int(0) {null}")
         else:
-            col_lines.append(f"  `{col}` {typ}(0) {null}")
+            col_lines.append(f"  `{col}` {typ} {null}")
     if any(FIELD_MAP[f][0] == "id" for f in fields):
         col_lines.append("  PRIMARY KEY (`id`) USING BTREE")
 
