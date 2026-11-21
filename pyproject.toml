@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vocabulary-studio"
+version = "0.2.2"
+description = "离线词表桌面工具：JSON 自动解析、自由选列、Word 和 SQL 导出"
+requires-python = ">=3.10"
+dependencies = [
+  "PySide6-Essentials>=6.8,<7",
+  "python-docx>=1.1,<2",
+]
+
+[project.optional-dependencies]
+build = ["pyinstaller>=6.11,<7"]
+
+[project.gui-scripts]
+vocabulary-studio = "desktop.app:main"
+
+[tool.setuptools]
+packages = ["desktop"]
+
+[tool.setuptools.data-files]
+"share/vocabulary-studio/licenses" = ["desktop/assets/licenses/*"]
+"share/vocabulary-studio/ui" = ["desktop/assets/ui/*"]
+"share/vocabulary-studio/tools" = ["tools/export_docx.py", "tools/json_to_sql.py"]

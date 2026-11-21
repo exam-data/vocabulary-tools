@@ -3,10 +3,9 @@
 """
 JSON → docx：直接从词汇 JSON 生成排版完善的 Word 文档，导出即成品。
 
-相比旧流程（generate_doc_from_sql.py + 两次 macro.js + 手工测字数断行）：
-- 不再需要 MySQL；美化内建（等效旧 macro.js：首行灰底、0.5pt 黑边框、华文中宋、
-  行高至少 31.18pt、水平+垂直居中、零间距）
-- 固定列宽布局：释义列自动计算单行最大汉字数，按顿号优雅断行，无需人工实测
+- 内建表格样式：首行灰底、0.5pt 黑边框、华文中宋、行高至少 31.18pt、
+  水平+垂直居中、零间距
+- 固定列宽布局：释义列自动计算单行最大汉字数，按顿号断行
   （字号 11pt 全角字宽 220 twips，列宽减边距后整除即得）
 - 可用 --max-length 覆盖自动值，--no-break-def 关闭断行
 
@@ -44,6 +43,24 @@ FIELD_WIDTH = {
 DEF_FIELD = "释义"
 
 import re
+
+NUMERIC_FIELDS = {"序号", "原序号", "词频", "综合得分", "真题次数"}
+
+
+def numeric_field(field, rows):
+    values = [r.get(field) for r in rows if r.get(field) is not None]
+    return field in NUMERIC_FIELDS or (bool(values) and all(
+        not isinstance(value, bool) and re.fullmatch(r"[+-]?\d+(?:\.\d+)?", str(value))
+        for value in values))
+
+
+def numeric_width(field, rows):
+    # Reserve the full number, cell padding and a little font-metric tolerance.
+    # Include the bold header: a short number must not squeeze a Chinese label.
+    header = sum(220 if ord(c) > 0x2ff else 150 for c in field)
+    content = max((sum(160 if c.isdigit() else 100 for c in str(r.get(field)))
+                   for r in rows if r.get(field) is not None), default=0)
+    return max(700, max(header, content) + CELL_MARGIN_TWIPS + 80)
 
 def str_add_break_line(zh_str, max_length, seps="、；"):
     """按义项分隔符（顿号/分号）断行：贪心装行，超长义项独占一行。
@@ -103,9 +120,7 @@ def write_cell(cell, text, header=False, cell_font=FONT):
             run.add_break()
 
 def compute_widths(fields, rows):
-    """内容自适应列宽：按各列真实内容的最大长度计算，释义为弹性列吃掉剩余宽度；
-    若总宽超过页面文字区，则所有列等比收缩适配。
-    目标：绝大多数行保持单行（行高 31.18pt，18 词/页正好一页）。"""
+    """保留原列宽规则，优先为数字留足单行宽度，再分配释义和文本列。"""
     LATIN = 122   # 11pt 拉丁字符约 6.1pt = 122 twips
     CJK = 220     # 11pt 全角字 = 220 twips
     def latin_w(v): return len(str(v)) * LATIN + CELL_MARGIN_TWIPS
@@ -116,9 +131,8 @@ def compute_widths(fields, rows):
             widths.append(None)                      # 弹性列，最后定
         elif f == "六级":
             widths.append(700)                       # 表头「六级」两字+星号要单行放下
-        elif f in ("序号", "原序号", "词频", "综合得分"):
-            m = max(latin_w(r[f]) for r in rows if r.get(f) is not None)
-            widths.append(min(max(m, 500), 1000))
+        elif numeric_field(f, rows):
+            widths.append(numeric_width(f, rows))
         elif f == "单词":
             m = max(latin_w(r["单词"]) for r in rows)
             widths.append(min(max(m, 800), 2200))
@@ -134,9 +148,28 @@ def compute_widths(fields, rows):
         else:
             widths.append(1100)
     fixed = sum(w for w in widths if w)
+    # If later text columns have spare width, borrow only what is needed.
+    # Numeric columns never participate in shrinking.
+    reserve = 1400 if DEF_FIELD in fields else 0
+    deficit = max(0, fixed + reserve - PAGE_TEXT_TWIPS)
+    candidates = []
+    for i, (f, width) in enumerate(zip(fields, widths)):
+        if width is None or numeric_field(f, rows):
+            continue
+        header = sum(220 if ord(c) > 0x2ff else 122 for c in f) + CELL_MARGIN_TWIPS
+        floor = max(header, 1000 if f == "单词" else 800)
+        if width > floor:
+            candidates.append((i, width - floor))
+    available = sum(spare for _, spare in candidates)
+    remaining = min(deficit, available)
+    for i, spare in reversed(candidates):
+        take = min(spare, remaining)
+        widths[i] -= take
+        remaining -= take
+    fixed = sum(w for w in widths if w)
     flex = PAGE_TEXT_TWIPS - fixed
-    if flex < 1400:
-        raise ValueError(f"列太多：固定列已占 {fixed} twips，释义列不足 1400 twips，超出 A4 宽度，不能生成（请减少勾选列）")
+    if flex < reserve:
+        raise ValueError("列太多：在保证数字不折行及释义可读的情况下，已超出页面宽度，请减少勾选列。")
     widths = [flex if w is None else w for w in widths]
     return widths
 
@@ -183,6 +216,7 @@ def main():
     page_num = total // per_num + (1 if total % per_num else 0)
 
     font = args.font or FONT
+    number_columns = {i for i, field in enumerate(fields) if numeric_field(field, rows)}
     doc = Document()
     normal = doc.styles["Normal"]
     normal.font.name = font
@@ -212,6 +246,9 @@ def main():
         for ci, w in enumerate(widths):
             for cell in table.columns[ci].cells:
                 cell.width = Twips(w)
+                if ci in number_columns:
+                    no_wrap = OxmlElement("w:noWrap")
+                    cell._tc.get_or_add_tcPr().append(no_wrap)
         for row in table.rows:
             row.height = ROW_HEIGHT
             row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST

@@ -11,7 +11,6 @@
 产出（与输入同目录）：
     <前缀>_reranked.json        完整版：原字段全部保留，序号变为新排名，
                                 附加 原序号/CEFR等级/学术词汇/高级词汇/综合得分
-    <前缀>_reranked_simple.json  兼容版：字段与输入完全对齐，仅序号变为新排名
 算法权重见下方 CONFIG，可自行调整。
 """
 import argparse, csv, json, math, os
@@ -109,22 +108,18 @@ def main():
     scored.sort(key=lambda x: x[0], reverse=True)
 
     prefix = args.out_prefix or os.path.splitext(args.input)[0]
-    full, simple = [], []
+    full = []
     for i, (score, entry, level, is_nawl, is_c1) in enumerate(scored, 1):
         full.append({"序号": i, "原序号": entry["序号"],
                      **{k: v for k, v in entry.items() if k != "序号"},
                      "CEFR等级": level, "学术词汇": is_nawl, "高级词汇": is_c1,
                      "综合得分": round(score, 2)})
-        simple.append({"序号": i, **{k: v for k, v in entry.items() if k != "序号"}})
 
     json.dump({"说明": f"{title} - 智能重排（词频×CEFR×学术×高级）",
                "排序算法": "score = log(词频+1)*10 + CEFR难度分 + 学术加分(+30) + 高级加分(+20)",
                "总词数": len(full), "词汇表": full},
               open(f"{prefix}_reranked.json", "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-    json.dump({title.replace("排序表", "智能排序表")
-               if "排序表" in title else title + "智能排序": simple},
-              open(f"{prefix}_reranked_simple.json", "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-    print(f"ok: {prefix}_reranked.json / {prefix}_reranked_simple.json（{len(full)} 词）")
+    print(f"ok: {prefix}_reranked.json（{len(full)} 词）")
     print("top5:", [e["单词"] for e in full[:5]])
 
 if __name__ == "__main__":

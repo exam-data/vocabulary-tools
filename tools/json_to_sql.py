@@ -15,6 +15,7 @@ FIELD_MAP = {
     "词频":    ("frequency",  "int"),
     "六级":    ("cet6",       "varchar(32)"),
     "单词":    ("word",       "varchar(255)"),
+    "英式音标": ("ipa_uk",     "varchar(512)"),
     "释义":    ("definition", "varchar(255)"),
     "其他拼写": ("variant",    "varchar(255)"),
     "分类名称": ("category",   "varchar(255)"),

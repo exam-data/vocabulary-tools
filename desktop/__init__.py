@@ -1,0 +1,1 @@
+"""Vocabulary Studio desktop application."""

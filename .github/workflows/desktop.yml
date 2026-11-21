@@ -1,0 +1,68 @@
+name: Build desktop apps
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['desktop-v*']
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install build dependencies
+        run: |
+          python -m pip install uv
+          uv sync --frozen --extra build --python 3.12
+      - name: Test parsers and exports
+        run: uv run --frozen --extra build python -m unittest discover -s tests -v
+      - name: Build bundled application
+        run: uv run --frozen --extra build python -m PyInstaller --noconfirm --clean desktop/VocabularyStudio.spec
+      - name: Smoke test packaged app (Linux)
+        if: runner.os == 'Linux'
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          dist/VocabularyStudio/VocabularyStudio --self-test smoke-output
+          python -c "import json; assert json.load(open('smoke-output/result.json'))['ok']"
+      - name: Smoke test packaged app (macOS)
+        if: runner.os == 'macOS'
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          dist/VocabularyStudio.app/Contents/MacOS/VocabularyStudio --self-test smoke-output
+          python -c "import json; assert json.load(open('smoke-output/result.json'))['ok']"
+      - name: Smoke test packaged app (Windows)
+        if: runner.os == 'Windows'
+        env:
+          QT_QPA_PLATFORM: offscreen
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath "dist/VocabularyStudio/VocabularyStudio.exe" -ArgumentList "--self-test", "smoke-output" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Packaged app failed" }
+          python -c "import json; assert json.load(open('smoke-output/result.json'))['ok']"
+      - name: Archive macOS app
+        if: runner.os == 'macOS'
+        run: ditto -c -k --sequesterRsrc --keepParent dist/VocabularyStudio.app dist/VocabularyStudio-macOS.zip
+      - name: Archive Windows app
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path dist/VocabularyStudio -DestinationPath dist/VocabularyStudio-Windows.zip
+      - name: Archive Linux app
+        if: runner.os == 'Linux'
+        run: tar -czf dist/VocabularyStudio-Linux.tar.gz -C dist VocabularyStudio
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VocabularyStudio-${{ runner.os }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+          if-no-files-found: error

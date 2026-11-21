@@ -1,51 +1,53 @@
-# vocabulary-tools
+# 词表工坊 · vocabulary-tools
 
-exam-data 词汇数据的**统一工具箱与可视化入口**。数据本身存放在数据仓库（[NETEMVocabulary](https://github.com/exam-data/NETEMVocabulary) 考研 5530 词、[CETVocabulary](https://github.com/exam-data/CETVocabulary) 四六级 5278 词），本仓库提供：
+词表工坊是 exam-data 的桌面客户端：导入词表 JSON，预览、搜索、筛选和自由选列，生成 Word 表格或 SQL，也可保存 JSON / CSV。数据处理在本机完成，启动时不自动加载词表。
 
-- **`index.html`（数据浏览）**：纯静态词汇数据浏览器——搜索、分类筛选、词频/字母排序、六级星标过滤，打开网页即用，**不需要任何本地环境**。数据实时取自两个数据仓的 master 分支。
-- **`tools.html`（工具网页版）**：生成 Word 单词文档、JSON⇄SQL 互转，**全部在浏览器本地完成**，无需 Python；可直接载入线上数据，免去上传。
-- **`tools/`**：命令行工具。JSON 是唯一数据真源，SQL 由 JSON 生成，**不再需要 MySQL**。
-- **`docs/`**：流程文档。
+词表数据独立存放在 [NETEMVocabulary](https://github.com/exam-data/NETEMVocabulary)（考研 5530 词）和 [CETVocabulary](https://github.com/exam-data/CETVocabulary)（四六级 5278 词）。
 
-## 可视化浏览器
+## 启动客户端
 
-本仓库开启 GitHub Pages 后即可在线访问（Settings → Pages → Source 选 `master` 根目录）：
-
-```
-https://exam-data.github.io/vocabulary-tools/
-```
-
-本地预览也可以直接双击 `index.html`，或：
+源码运行需要 Python 3.10 及以上版本和 [uv](https://docs.astral.sh/uv/)：
 
 ```bash
-python3 -m http.server 8000   # 然后访问 http://localhost:8000
+git clone https://github.com/exam-data/vocabulary-tools.git
+cd vocabulary-tools
+uv sync --frozen
+uv run --frozen vocabulary-studio
 ```
 
-## 工具一览
+1. 导入自己的 JSON 文件；同一文件包含多个词表时可切换。
+2. 搜索或筛选词条，勾选并拖动排列需要的列。
+3. 设置每页词数、字体等参数，选择输出格式并生成文件。
+
+Word 表格内建表格样式和释义自动断行。
+
+完整功能、平台依赖和打包方式见 [客户端说明](desktop/README.md)。客户端构建工作流见 [GitHub Actions](https://github.com/exam-data/vocabulary-tools/actions/workflows/desktop.yml)，成功构建的运行可在 Artifacts 下载对应平台的应用包。
+
+## 仓库目录
+
+| 目录 | 内容 |
+| --- | --- |
+| [desktop/](desktop/) | 客户端界面、数据预览、导出与打包配置 |
+| [tools/](tools/) | 导出、格式转换、数据校验、智能重排与拼写变体工具 |
+| [docs/](docs/) | 各工具使用说明 |
+| [tests/](tests/) | 数据解析、导出和交互测试 |
+
+## 命令行工具
+
+JSON 是数据源，可直接调用客户端共用的脚本：
 
 | 工具 | 用途 | 用法 |
-|---|---|---|
-| `tools/export_docx.py` | JSON → Word 初版（每页一表） | `python3 tools/export_docx.py netem_full_list.json -o out.docx` |
-| `tools/macro.js` | WPS 宏：美化 Word 表格（**旧流程遗留**；新生成器已内建美化，无需再用） | 在 WPS 宏编辑器中执行 |
-| `tools/format_doc_def.py` | Word 释义列按宽度断行 | `python3 tools/format_doc_def.py in.docx -o out.docx --max-length 20` |
-| `tools/json_to_sql.py` | JSON → MySQL 导入文件 | `python3 tools/json_to_sql.py netem_full_list.json` |
-| `tools/sql_to_json.py` | SQL → JSON（兼容旧数据） | `python3 tools/sql_to_json.py netem_full_list.sql` |
-| `tools/spelling-variations/` | Node 包：填充「其他拼写」 | 见 `docs/how-to-generate-docs.md` |
-| `tools/rerank/` | 通用智能重排器（词频×CEFR×学术×高级） | `python3 tools/rerank/rerank_vocab.py <词汇.json>` |
-| `tools/book/` | 词书 PDF 模板（rank/category 双模式，xelatex） | 见 `tools/book/README.md` |
+| --- | --- | --- |
+| `tools/export_docx.py` | JSON → Word 表格，自动排版及释义断行 | `python3 tools/export_docx.py words.json -o out.docx` |
+| `tools/json_to_sql.py` | JSON → MySQL 导入文件 | `python3 tools/json_to_sql.py words.json -o out.sql` |
+| `tools/sql_to_json.py` | SQL → JSON | `python3 tools/sql_to_json.py words.sql -o out.json` |
+| `tools/check_netem.py` | 校验 NETEM 各版本 JSON / SQL 的词数、序号与字段同步 | [使用说明](docs/how-to-generate-docs.md#数据校验) |
+| `tools/check_cet.py` | 校验 CET 四版本、SQL 全字段与超课标重排，可核对 NETEM 同词同步 | `python3 tools/check_cet.py ../CETVocabulary --netem ../NETEMVocabulary` |
+| `tools/rerank/` | 综合词频、CEFR、学术及高级词汇智能重排 | [使用说明](docs/how-to-generate-docs.md#智能重排) |
+| `tools/spelling-variations/` | 拼写变体词典、规则与数据库批处理入口 | [使用说明](docs/how-to-generate-docs.md#拼写变体) |
 
-## 生成单词文档的完整流程
-
-```bash
-pip install python-docx          # 唯一依赖
-python3 tools/export_docx.py netem_full_list.json -o draft.docx   # 美化+释义断行已内建，打开即成品
-# （可选）python3 tools/format_doc_def.py draft.docx -o final.docx --max-length 20
-```
-
-也可以直接用网页版 [tools.html](https://exam-data.github.io/vocabulary-tools/tools.html)，浏览器里点一下就导出美化好的 Word。
-
-详见 [docs/how-to-generate-docs.md](docs/how-to-generate-docs.md)。
+各工具的参数见 [使用说明](docs/how-to-generate-docs.md)。
 
 ## 许可
 
-数据基于 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)，程序基于 MIT License。
+数据基于 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)，程序基于 MIT License。客户端所用开源组件及字体许可见 [客户端说明](desktop/README.md#开源组件)。

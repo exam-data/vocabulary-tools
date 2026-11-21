@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SQL → JSON：把旧流程的 MySQL 导入文件还原为词汇 JSON（与 json_to_sql.py 互逆）。
+SQL → JSON：把 MySQL 导入文件还原为词汇 JSON（与 json_to_sql.py 互逆）。
 
 用法：
     python3 sql_to_json.py netem_full_list.sql                      # 输出同名 .json
@@ -12,6 +12,7 @@ import argparse, os, re, sys
 COLUMN_MAP = {  # SQL 列名 -> JSON 中文字段
     "id": "序号", "frequency": "词频", "cet6": "六级",
     "word": "单词", "definition": "释义", "variant": "其他拼写", "category": "分类名称",
+    "ipa_uk": "英式音标",
     "orig_id": "原序号", "cefr": "CEFR等级", "nawl": "学术词汇", "c1c2": "高级词汇",
     "score": "综合得分",
     "exam_count": "真题次数",

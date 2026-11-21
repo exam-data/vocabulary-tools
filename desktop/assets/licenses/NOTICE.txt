@@ -1,0 +1,17 @@
+Vocabulary Studio third-party components
+
+This application bundles a Python runtime and dynamically linked Qt libraries.
+Python: https://www.python.org/  https://github.com/python/cpython
+Qt / PySide6 / Shiboken6: https://www.qt.io/qt-for-python
+Qt source: https://code.qt.io/cgit/qt/
+PySide and Shiboken source: https://code.qt.io/cgit/pyside/pyside-setup.git/
+PySide6_Essentials and Shiboken6 are used under LGPL-3.0; the license text is
+included in this directory. The Qt libraries remain separate dynamic libraries
+inside the application bundle/directory and can be replaced with compatible builds.
+
+python-docx: https://github.com/python-openxml/python-docx (MIT)
+lxml: https://lxml.de/ (BSD and bundled third-party notices)
+
+Each bundled Python distribution's metadata and its supplied license files are
+retained alongside the package.
+Exact dependency versions are recorded in those metadata files and uv.lock.
